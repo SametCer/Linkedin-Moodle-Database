@@ -1,0 +1,288 @@
+--Triggers
+/*Trigger 1
+When new data is added about a member who is joining the group, in the group table, to the related group, group member count is increasing 1.*/ 
+CREATE OR REPLACE FUNCTION log_group_mem()
+RETURNS TRIGGER 
+LANGUAGE PLPGSQL
+AS
+$$
+BEGIN
+	UPDATE group_ SET mem_count= mem_count+1 
+	WHERE group_id=(SELECT group_id
+				    FROM group_
+				    WHERE group_id=NEW.group_id);
+
+	RETURN NEW;
+END;
+$$
+CREATE TRIGGER log_group_mem 
+AFTER INSERT ON user_group
+FOR EACH ROW EXECUTE PROCEDURE log_group_mem();
+
+/*INSERT INTO user_group 
+VALUES
+   ('000000031','300001',FALSE);
+INSERT INTO user_group 
+VALUES
+   ('000000024','300002',FALSE);*/
+/*Trigger 2 
+When a user is trying to change a username, trigger is checking the users table to find out 
+if that username is being used by someone else. If it’s used, the user can’t change his username to that one. And notice is rising.*/
+
+CREATE OR REPLACE FUNCTION username_changes()
+	RETURNS TRIGGER
+	LANGUAGE PLPGSQL
+	AS
+$$
+BEGIN
+	IF (SELECT U.username  
+		FROM users AS U 
+		WHERE U.username = NEW.username) IS NOT null then NEW.USERNAME = OLD.USERNAME ;
+		raise notice 'Already user exists with this username!!';
+	END IF;
+	RETURN NEW;
+END;
+$$
+
+CREATE TRIGGER username_changes
+BEFORE UPDATE
+ON USERS
+FOR EACH ROW
+EXECUTE PROCEDURE username_changes();
+
+UPDATE USERS SET  USERNAME = 'MOsmanUnalir' WHERE USER_ID = '000000015'
+
+/*Trigger 3
+When a user is liking some post, the related post in the post table, like the count section, is increasing 1.*/	
+CREATE OR REPLACE FUNCTION like_count_update()
+RETURNS TRIGGER 
+LANGUAGE PLPGSQL
+AS
+$$
+BEGIN
+	UPDATE post SET like_count= like_count+1 
+	WHERE post_id=(SELECT post_id
+				    FROM post
+				    WHERE post_id=NEW.post_id);
+
+	RETURN NEW;
+END;
+$$
+
+CREATE TRIGGER like_count_update 
+AFTER INSERT ON like_
+FOR EACH ROW EXECUTE PROCEDURE like_count_update();
+
+/*INSERT INTO like_
+VALUES
+   ('000000011','400005'),
+   ('000000030','400005')
+;*/
+
+
+/*Trigger 4
+When the instructor is grading students for assignment, the trigger is checking if the grade is less than zero (grade should be >=0).*/
+CREATE OR REPLACE FUNCTION grade_control()
+RETURNS TRIGGER 
+LANGUAGE PLPGSQL
+AS
+$$
+BEGIN
+	IF NEW.grade < 0 THEN
+		RAISE EXCEPTION 'Grade can not be a negative value grade: %', NEW.grade  USING HINT = 'Please check your grade value';
+	END IF;
+	RETURN NEW;
+END;
+$$
+
+CREATE TRIGGER grade_control 
+BEFORE INSERT 
+ON student_assignment 
+FOR EACH ROW
+EXECUTE PROCEDURE grade_control(); 
+
+/*INSERT INTO student_assignment 
+VALUES 
+   	('906303067','211101','21101',-30);*/
+  
+--CONSTRAIT
+ALTER TABLE members ADD CONSTRAINT SexControl CHECK (sex='F' or sex='M');
+ALTER TABLE company  ADD CONSTRAINT CompanyEmployeeControl CHECK (company.emp_count>=0);
+ALTER TABLE job  ADD CONSTRAINT WorkingTypeControl CHECK (job.working_type='Full time' or job.working_type='Part time');
+ALTER TABLE instructor ADD CONSTRAINT ins_types CHECK (ins_type = 'Prof' OR ins_type = 'Dr'OR ins_type='Prof Dr' or ins_type='Asst');
+ALTER TABLE employee_job  ADD CONSTRAINT isaccept CHECK (isaccept =TRUE or isaccept=FALSE);
+
+--INSERT
+INSERT INTO member_language 
+VALUES 
+	('788333451','Turkish');
+INSERT INTO users (user_id,address,e_mail,username)
+VALUES   
+	('000000031', 'Hakkari', 'memduh@hotmail.com','memduh');
+INSERT  into members(ssn,birth_date,sex,fname,lname,user_id,mem_type)
+VALUES  
+	('159357246','23.11.1986','M','Memduh','Hisar','000000031','student');
+
+--DELETE
+DELETE FROM connect_  WHERE Following_ssn='144656579';
+DELETE FROM message  WHERE Sender_ssn='129935662';
+DELETE FROM like_  WHERE user_id='000000002';
+
+--UPDATE
+UPDATE comment_  SET contents ='Dolar düşüşte' WHERE user_id ='000000012' and post_id='400005';
+UPDATE instructor  SET ins_type ='Prof Dr' WHERE  ssn ='526493374';
+UPDATE users  SET e_mail ='smtcrzc@gmail.com'  where user_id ='000000002';
+
+--select from one table
+
+--Students who are taking at least 3 courses in the Spring term.
+SELECT course_name, student_count
+FROM course
+WHERE term='Autumn' and student_count > 3
+ORDER BY course_name ASC;
+-- Ordering provinces where at least 1 company is searching for a Software Engineer.
+SELECT job_location, COUNT(*)
+FROM job
+WHERE position_name='Software Engineer'
+GROUP BY job_location
+HAVING COUNT(*) > 0;
+--Listing the companies’ names, their sector and how many employees are working there (employee count), which includes holding at their names. 
+SELECT DISTINCT ON (sector) sector, comp_name, emp_count
+FROM company
+WHERE comp_name LIKE '%holding%';
+
+
+--select from two table
+
+--Listing the groups’ names and member counts created by the owner of the “Girişimciler” group.
+SELECT Group_name, Mem_count
+FROM (users AS u INNER JOIN group_ AS gr ON u.user_id = gr.owner_id)
+WHERE owner_id IN
+	((SELECT owner_id 
+	  FROM group_ 
+	  WHERE group_name = 'Girisimciler')) AND group_name<>'Girisimciler'
+ORDER BY Group_name;
+
+--Listing of lecturers of courses without homework.
+SELECT DISTINCT ON (course.ins_ssn) course.ins_ssn AS Instructor, course_name AS Course
+FROM course
+WHERE NOT EXISTS(
+			SELECT course.course_id
+			FROM assignment_ AS assign
+			WHERE assign.course_id = course.course_id);
+;
+
+--Grouping the instructors working in the departments of the university with 'Uni_id=20001' according to their instructor types and listing the number of instructors.
+SELECT dept_name, ins_type, COUNT(*)
+FROM (department AS D INNER JOIN instructor AS I ON D.dept_id=I.dept_id)
+WHERE D.dept_id= I.dept_id AND D.uni_id='20001' AND
+	EXISTS (SELECT ins_type
+	 FROM instructor as I,department as D
+	 WHERE D.dept_id=I.dept_id)
+GROUP BY ins_type, dept_name
+;
+
+--Listing the information of the members who speak more than 1 language, born after 01.01.1999.
+SELECT *
+FROM members AS mem
+WHERE ssn IN
+	(SELECT ssn
+	 FROM member_language AS mem_lan
+	 WHERE mem.ssn=mem_lan.member_ssn
+	 GROUP BY mem.Ssn
+	 HAVING COUNT(*) > 1)  AND mem.birth_date>'01.01.1999'
+;
+
+--Three table
+--Listing the company name, employee name and last name, position of the job applications that shared job advertisements between February and May 2021 and where workers were accepted.
+SELECT fname AS Adı,lname AS Soyadı, co.comp_name, j.position_name, j.working_type, j.advert_date
+FROM employee_job AS emp, job AS j, company AS co, members AS mem
+WHERE mem.ssn=emp.employee_ssn AND j.job_id=emp.job_id AND 
+	co.comp_id= emp.comp_id AND emp.isaccept= true AND (j.advert_date >= '2021-02-01' AND j.advert_date < '2021-05-01')
+;
+
+
+--Listing 3 different comments from the same post of the company whose post got the most likes.
+SELECT DISTINCT ON (contents) contents, post_id, user_id
+FROM COMMENT_
+WHERE POST_ID = (SELECT POST_ID 
+				FROM ((POST NATURAL JOIN USERS) NATURAL JOIN COMPANY)
+				ORDER BY LIKE_COUNT LIMIT 3)
+;
+
+--Listing the average grades of the students who took the 'DBMS' course from 'Kazim dirik' from the given assignments.
+SELECT ass.assign_name, AVG(grade)
+FROM (student_assignment AS sa JOIN assignment_ AS ass ON sa.assign_id=ass.assign_id)
+WHERE sa.assign_id IN 
+	(SELECT assign_id
+	FROM assignment_ AS ass
+	WHERE (ass.ins_ssn, ass.course_id) IN 
+	 (SELECT ssn, course_id
+		FROM (members AS mem INNER JOIN course AS co ON co.ins_ssn = mem.ssn)
+		WHERE fname='Kazim' AND lname='Dirik' AND course_name='DBMS'))
+GROUP BY ass.assign_name
+;
+
+--Original sqls
+--Listing the internships of the students who took the 'DBMS' course from 'Kazim Dirik' and whose position is "Data Analyst".
+SELECT fname, lname, sex, position_name, working_type
+FROM ((student_job NATURAL JOIN job) NATURAL JOIN members)
+WHERE members.ssn IN
+	(SELECT student_ssn
+	FROM (course NATURAL JOIN student_course)
+	WHERE (ins_ssn,course_id) IN 
+	 (SELECT ssn, course_id
+		FROM (members AS mem INNER JOIN course AS co ON co.ins_ssn = mem.ssn)
+		WHERE fname='Kazim' AND lname='Dirik' AND course_name='DBMS')) AND position_name = 'Data Analyst'
+ORDER BY fname DESC
+;
+
+--Listing the first name, last name and type of instructors of the "university" users of the groups that include "mezunları", who are instructors in the "math" department.
+SELECT fname, lname, ins_type
+FROM (members AS mem INNER JOIN instructor AS i ON i.ssn= mem.ssn)
+WHERE dept_id =
+	(SELECT dept_id
+	FROM (department AS dept JOIN university AS uni ON dept.uni_id=uni.uni_id)
+	WHERE uni.user_id =
+	 (SELECT owner_id
+		FROM group_
+		WHERE group_name LIKE '%deney%') AND dept_name='Math')
+;
+
+--Lists the first name, last name and cgpa in descending order of the students who are messaged by the employee who works 'Computer Engineer' position.		
+SELECT fname, lname, cpga
+FROM (members AS mem JOIN student AS s ON mem.ssn= s.ssn)
+WHERE mem.ssn IN
+	(SELECT s.ssn
+	 FROM (message AS me JOIN student ON me.receiver_ssn= s.ssn)
+	 WHERE me.sender_ssn IN
+	 (SELECT employee_ssn
+		FROM has_exp_on
+		WHERE roles = 'Computer Engineer'))
+ORDER BY cpga
+;
+
+--Lists the first name and last name of students who speak Italian or English with an average grade of 2.5 and started university after 2000.
+SELECT DISTINCT mem.fname, mem.lname
+FROM member_language AS ml, student AS s, members AS mem
+WHERE (ml.languages='Italian' OR  ml.languages='English') AND s.cpga > 2.5 AND s.Start_year > 2000
+	AND ml.member_ssn = s.ssn AND mem.ssn=ml.member_ssn
+;
+
+--List the skill name,first name,last name of members who endorse ssn number '251936178's skills.
+SELECT s.skill_name,fname,lname  
+FROM members,skill as s
+where (members.ssn,s.skill_id)  IN (select members.ssn ,skill_id 
+									from member_endorse_skill as mes,members 
+									where member_ssn ='251936178' and endorsed_by=members.ssn)
+;
+
+--It lists how many people have endorsed their SKILLs for users who have a CPGA higher than the average GPA and who is female
+SELECT mes.member_ssn, COUNT(*)
+FROM member_endorse_skill AS mes
+WHERE mes.member_ssn IN 
+      (SELECT mem.ssn
+        FROM (student AS s JOIN members AS mem ON s.ssn=mem.ssn)
+        WHERE s.cpga > (SELECT AVG(s.cpga)
+                        FROM student AS s) AND mem.sex='F')
+GROUP BY mes.member_ssn;

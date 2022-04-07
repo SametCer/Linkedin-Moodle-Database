@@ -1,0 +1,273 @@
+CREATE TABLE users(
+	user_id CHAR(9) NOT NULL PRIMARY KEY,
+	address VARCHAR(30) NOT NULL ,
+	e_mail VARCHAR(50) NOT NULL ,
+	username VARCHAR(20) NOT null,
+	UNIQUE(e_mail,username)
+);
+
+CREATE TABLE members (
+	ssn CHAR(9) PRIMARY KEY,
+	birth_date Date NOT NULL,
+	Sex CHAR NOT NULL,
+	FName VARCHAR ( 50 ) NOT NULL ,
+	LName VARCHAR ( 50 ) NOT NULL ,
+	User_id CHAR(9) NOT NULL ,
+	Mem_Type VARCHAR ( 10 ) NOT NULL ,
+	foreign key(User_id) references users(user_id)
+);
+
+create table company(
+	Comp_id CHAR(9) PRIMARY KEY,
+	Emp_count INT ,
+	Comp_Name VARCHAR ( 50 ) NOT NULL,
+	Sector VARCHAR ( 50 ) NOT NULL, 
+	User_id CHAR(9) NOT NULL ,
+	foreign key(User_id) references users(user_id),
+	UNIQUE (Comp_Name)
+);
+
+create table university(
+	Uni_id CHAR(5) PRIMARY KEY,
+	Uni_name VARCHAR ( 50 ) NOT NULL,
+	Location_name VARCHAR ( 50 ) NOT NULL,
+	User_id CHAR(9) NOT NULL ,
+	foreign key(User_id) references users(user_id),
+	UNIQUE(Uni_name)
+);
+
+create table job(
+	Job_id CHAR(5) PRIMARY KEY,
+	Comp_id CHAR(9) NOT NULL,
+	Position_name VARCHAR ( 50 ) NOT NULL,
+	Working_Type VARCHAR ( 50 ) NOT NULL,
+	Advert_date	DATE NOT NULL,
+	Job_Location VARCHAR ( 50 ) NOT NULL,
+	foreign key(Comp_id) references company (Comp_id)
+);
+
+create table department(
+	Dept_id CHAR(5) PRIMARY KEY,
+	Dept_name VARCHAR ( 20 ) NOT null,
+	Uni_id CHAR(5)  NOT null,
+	foreign key(Uni_id) references university (Uni_id)
+);
+
+create table Instructor(
+	ssn CHAR(9) PRIMARY KEY,
+	Ins_Type VARCHAR ( 20 ) NOT null,
+	Dept_id CHAR(5),
+	foreign key(Dept_id) references department(Dept_id)
+);
+
+create table Student(
+	ssn CHAR(9) PRIMARY KEY,
+	CPGA FLOAT NOT NULL , 
+	Start_Year INT NOT NULL ,
+	Dept_id CHAR(5),
+	foreign key(Dept_id) references department(Dept_id)
+);
+
+create table employee(
+	ssn CHAR(9) PRIMARY KEY,
+	Graduated_Uni VARCHAR ( 20 ) NOT null
+);
+
+create table course(
+	Course_id CHAR(5) PRIMARY KEY,
+	Course_name VARCHAR ( 20 ) NOT NULL,
+	Student_Count INT ,
+	Term VARCHAR ( 10 ) NOT NULL,
+	Dept_id CHAR(5) NOT NULL,
+	Ins_Ssn CHAR ( 9 ) NOT null,
+	foreign key(Dept_id) references department(Dept_id),
+	foreign key(Ins_Ssn) references Instructor (ssn)
+);
+
+create table group_(
+	Group_id CHAR(6) PRIMARY KEY,
+	Group_Name VARCHAR ( 20 ) NOT NULL,
+	Mem_Count INT,
+	Owner_id CHAR(9) NOT NULL ,
+	foreign key(Owner_id) references users(User_id)
+);
+
+create table post(
+	Post_id CHAR(6) PRIMARY KEY,
+	Post_date DATE NOT NULL,
+	Like_Count INT default 0,
+	Group_id  CHAR(6),
+	User_id CHAR(9) NOT NULL ,
+	foreign key(Group_id) references group_(Group_id),
+	foreign key(User_id) references users(User_id) 
+);
+
+create table assignment_(
+	Assign_id CHAR(6) NOT NULL ,
+	Course_id CHAR(6) NOT NULL ,
+	Assign_Name VARCHAR (10) NOT NULL,
+	Ins_ssn CHAR(9) NOT NULL,
+	PRIMARY KEY(Assign_id,Course_id),
+	foreign key(Course_id) references course(Course_id),
+	foreign key(Ins_ssn) references instructor(ssn)
+);
+
+create table skill(
+	Skill_id CHAR(3) PRIMARY KEY  ,
+	Skill_name VARCHAR (20) NOT NULL
+);
+create table message(
+	Sender_ssn CHAR(9) NOT null,
+	Receiver_ssn CHAR(9) NOT null,
+	Context VARCHAR (100) NOT null,
+	Message_Date DATE NOT null,
+	PRIMARY KEY(Sender_ssn,Receiver_ssn),
+	foreign key(Sender_ssn) references members (ssn),
+	foreign key(Receiver_ssn) references members (ssn)
+);
+create table view_profile(
+	Viewers_ssn CHAR(9) NOT null,
+	Viewing_ssn CHAR(9) NOT null,
+	PRIMARY KEY(Viewers_ssn,Viewing_ssn),
+	foreign key(Viewers_ssn) references members (ssn),
+	foreign key(Viewing_ssn) references members (ssn)
+);
+
+create table Connect_(
+	Following_ssn CHAR(9) NOT null,
+	Followers_ssn CHAR(9) NOT null,
+	PRIMARY KEY(Following_ssn,Followers_ssn),
+	foreign key(Following_ssn) references members(ssn),
+	foreign key(Followers_ssn) references members(ssn)
+);
+
+create table user_group(
+	User_id CHAR(9) NOT null,
+	Group_id CHAR(6) NOT null,
+	IsManager BOOLEAN NOT NULL ,
+	PRIMARY KEY(User_id,Group_id),
+	foreign key(User_id) references users(User_id),
+	foreign key(Group_id) references group_ (Group_id)
+);
+
+create table comment_(
+	User_id CHAR(9) NOT null,
+	Post_id CHAR(6) NOT null,
+	Contents VARCHAR (50) NOT null,
+	PRIMARY KEY (User_id,Post_id),
+	foreign key(User_id) references users(User_id),
+	foreign key(Post_id) references post(Post_id)
+);
+
+create table like_(
+	User_id CHAR(9) NOT null,
+	Post_id CHAR(6) NOT null,
+	PRIMARY KEY (User_id,Post_id),
+	foreign key(User_id) references users(User_id),
+	foreign key(Post_id) references post(Post_id)
+);
+
+create table member_language(
+	Member_Ssn CHAR(9) NOT null,
+	Languages VARCHAR (15) NOT null,
+	PRIMARY KEY(Member_Ssn,Languages),
+	foreign key(Member_Ssn) references members (ssn)
+);
+
+create table member_endorse_skill(
+	Member_Ssn CHAR(9) NOT null,
+	Skill_id CHAR(3) NOT NULL,
+	Endorsed_by CHAR(9) NOT null,
+	PRIMARY KEY (Member_Ssn,Skill_id,Endorsed_by),
+	foreign key(Member_Ssn) references members (ssn),
+	foreign key(Skill_id) references skill(Skill_id)
+);
+create table student_assignment(
+	Student_ssn CHAR(9) NOT null,
+	Assign_id CHAR(6) NOT NULL ,
+	Course_id CHAR(6) NOT NULL ,
+	Grade INT NOT NULL ,
+	PRIMARY KEY(Student_ssn,Assign_id,Course_id),
+	foreign key(Assign_id,Course_id) references assignment_(Assign_id,Course_id),
+	foreign key(Student_ssn) references Student(ssn)
+);
+
+create table student_course(
+	Student_ssn CHAR(9) NOT null,
+	Course_id CHAR(6) NOT NULL ,
+	PRIMARY KEY(Student_ssn,Course_id),
+	foreign key(Student_ssn) references Student(ssn),
+	foreign key(Course_id) references course(Course_id)
+);
+
+create table student_job(
+	Student_ssn CHAR(9) NOT null,
+	Job_id CHAR(6) NOT NULL ,
+	Comp_id CHAR(6) NOT NULL ,
+	PRIMARY KEY(Student_ssn,Job_id,Comp_id),
+	foreign key(Student_ssn) references Student(ssn),
+	foreign key(Job_id) references job(Job_id),
+	foreign key(Comp_id) references company (Comp_id )
+);
+
+create table employee_job(
+	Employee_ssn CHAR(9) NOT null,
+	Job_id CHAR(6) NOT NULL ,
+	Comp_id CHAR(6) NOT NULL ,
+	IsAccept BOOLEAN NOT NULL ,
+	PRIMARY KEY(Employee_ssn ,Job_id,Comp_id),
+	foreign key(Employee_ssn) references employee (ssn),
+	foreign key(Job_id) references job(Job_id),
+	foreign key(Comp_id) references company (Comp_id)
+);
+
+create table has_exp_on(
+	Employee_ssn CHAR(9) NOT null,
+	Comp_id CHAR(6) NOT NULL ,
+	Start_Date DATE NOT NULL ,
+	End_Date Date NOT NULL ,
+	Roles VARCHAR(10) NOT NULL ,
+	PRIMARY KEY(Employee_ssn,Comp_id),
+	foreign key(Employee_ssn) references employee (ssn),
+	foreign key(Comp_id) references company (Comp_id)
+);
+
+alter table has_exp_on alter column  Roles type VARCHAR(50);
+
+CREATE TABLE airport(
+	Airport_code CHAR(9) NOT NULL PRIMARY KEY,
+	Name VARCHAR(30) NOT NULL ,
+	city VARCHAR(50) NOT NULL ,
+	state VARCHAR(20) NOT null
+);
+
+
+CREATE TABLE flight(
+	flight_number CHAR(9) NOT NULL PRIMARY KEY,
+	airline VARCHAR(30) NOT NULL ,
+	weekdays VARCHAR(50) NOT NULL 
+);
+
+CREATE TABLE flight_leg(
+	flight_number  CHAR(9) NOT NULL ,
+	leg_number VARCHAR(30) NOT NULL ,
+	dac VARCHAR(50) NOT NULL ,
+	sdt TIMESTAMP NOT null,
+	aac VARCHAR(50) NOT NULL ,
+	sat TIMESTAMP NOT null,
+	PRIMARY key(flight_number,leg_number)
+	
+);
+
+CREATE TABLE leg_instance(
+	flight_number  CHAR(9) NOT NULL,
+	leg_number VARCHAR(30) NOT NULL,
+	date DATE NOT NULL ,
+	noas VARCHAR(20)  NOT null,
+	airplane_id VARCHAR(50) NOT NULL ,
+	dac VARCHAR(50) NOT NULL ,
+	dt TIMESTAMP NOT null,
+	aac VARCHAR(50) NOT NULL ,
+	at TIMESTAMP NOT null,
+	PRIMARY key(flight_number,leg_number)
+);
